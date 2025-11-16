@@ -51,12 +51,12 @@ class Tracker_REST {
     public function track($request) {
         global $wpdb;
         $table = $wpdb->prefix . 'visitor_logs';
-
+    
         $body = json_decode($request->get_body(), true);
         $client_id = isset($body['client_id']) ? sanitize_text_field($body['client_id']) : null;
         $page = isset($body['page']) ? esc_url_raw($body['page']) : '';
         $referrer = isset($body['referrer']) ? esc_url_raw($body['referrer']) : '';
-
+    
         // Best-effort IP detection
         $ip = '';
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -64,20 +64,41 @@ class Tracker_REST {
         } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
             $ip = $_SERVER['REMOTE_ADDR'];
         }
-
+    
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-
-        $wpdb->insert($table, [
-            'ip_address' => $ip,
-            'user_agent' => $user_agent,
-            'page_url'   => $page,
-            'client_id'  => $client_id,
-            'referrer'   => $referrer,
-            'visited_at' => current_time('mysql', 1) // GMT (1) recommended; WP handles UTC
-        ], ['%s','%s','%s','%s','%s','%s']);
-
-        return rest_ensure_response(['status' => 'ok']);
+    
+        if (!$client_id || !$page) {
+            return rest_ensure_response(['status'=>'error','message'=>'invalid client_id or page']);
+        }
+    
+        // Cek duplicate: IP + page + client_id per hari
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table 
+             WHERE ip_address = %s 
+               AND page_url = %s 
+               AND client_id = %s 
+               AND DATE(visited_at) = CURDATE()",
+            $ip,
+            $page,
+            $client_id
+        ));
+    
+        if (!$exists) {
+            $wpdb->insert($table, [
+                'ip_address' => $ip,
+                'user_agent' => $user_agent,
+                'page_url'   => $page,
+                'client_id'  => $client_id,
+                'referrer'   => $referrer,
+                'visited_at' => current_time('mysql', 1)
+            ], ['%s','%s','%s','%s','%s','%s']);
+    
+            return rest_ensure_response(['status'=>'ok','message'=>'recorded']);
+        } else {
+            return rest_ensure_response(['status'=>'skipped','message'=>'already recorded today']);
+        }
     }
+    
 
     // TOTALS: total_visitors (unique ip) and pageviews for given single period
     public function totals($request) {

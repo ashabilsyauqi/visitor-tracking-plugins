@@ -11,7 +11,7 @@ class Tracker_Activator {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-        // 1. visitor_logs (raw events)
+        // 1. visitor_logs (raw events + last_visited)
         $sql_logs = "
         CREATE TABLE IF NOT EXISTS $table_logs (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -21,6 +21,7 @@ class Tracker_Activator {
             client_id VARCHAR(255) DEFAULT NULL,
             referrer TEXT DEFAULT NULL,
             visited_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_visited DATETIME DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             INDEX (visited_at),
             INDEX (ip_address)
@@ -28,7 +29,7 @@ class Tracker_Activator {
         ";
         dbDelta($sql_logs);
 
-        // 2. tracker_visitors (legacy)
+        // 2. tracker_visitors (legacy, optional)
         $sql_visitors = "
         CREATE TABLE IF NOT EXISTS $table_visitors (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -41,7 +42,7 @@ class Tracker_Activator {
         ";
         dbDelta($sql_visitors);
 
-        // 3. tracker_pageviews (legacy)
+        // 3. tracker_pageviews (legacy, optional)
         $sql_pageviews = "
         CREATE TABLE IF NOT EXISTS $table_pageviews (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
