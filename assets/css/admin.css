@@ -1,7 +1,19 @@
 .wa-card {
     background: #fff;
-    padding: 20px;
+    padding: 16px;
     border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
+    margin-bottom: 16px;
+    border: 1px solid #e5e7eb;
 }
+.wa-row {
+    display: flex;
+    gap: 16px;
+}
+.wa-col {
+    flex: 1;
+}
+.wa-summary {
+    font-size: 14px;
+    color: #111827;
+}
+canvas { width:100% !important; height: 320px !important; }
