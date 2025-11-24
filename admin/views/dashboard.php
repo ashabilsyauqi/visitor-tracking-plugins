@@ -1,3 +1,20 @@
+<?php
+// =========================
+// Ambil Top 5 Page (langsung dari DB)
+// =========================
+global $wpdb;
+$table = $wpdb->prefix . 'visitor_logs';
+
+$top_pages = $wpdb->get_results("
+    SELECT page_url, COUNT(*) AS total_views
+    FROM $table
+    WHERE page_url != ''
+    GROUP BY page_url
+    ORDER BY total_views DESC
+    LIMIT 5
+");
+?>
+
 <div class="wrap">
     <h1>Visitor Analytics Dashboard</h1>
 
@@ -31,4 +48,33 @@
             <canvas id="monthlyChart"></canvas>
         </div>
     </div>
+
+    <!-- ============================== -->
+    <!--       TOP 5 HALAMAN            -->
+    <!-- ============================== -->
+    <div class="wa-card" style="margin-top:20px;">
+        <h2>Top 5 Halaman Paling Ramai Dikunjungi</h2>
+
+        <?php if (!empty($top_pages)) : ?>
+            <table class="widefat striped">
+                <thead>
+                    <tr>
+                        <th>Halaman</th>
+                        <th>Total Kunjungan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($top_pages as $page) : ?>
+                        <tr>
+                            <td><?php echo esc_html($page->page_url); ?></td>
+                            <td><?php echo esc_html($page->total_views); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else : ?>
+            <p>Belum ada data kunjungan.</p>
+        <?php endif; ?>
+    </div>
+
 </div>

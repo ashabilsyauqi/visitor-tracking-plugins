@@ -9,6 +9,15 @@ class Tracker_REST {
             'permission_callback' => '__return_true'
         ]);
 
+        // register_rest_route('wpva/v1', '/stats/top-pages', [
+        //     'methods'  => 'GET',
+        //     'callback' => [$this, 'top_pages'],
+        //     'permission_callback' => function () {
+        //         return current_user_can('manage_options');
+        //     }
+        // ]);
+        
+
         // totals: returns totals for chosen range (daily/weekly/monthly)
         register_rest_route('wpva/v1', '/stats', [
             'methods'  => 'GET',

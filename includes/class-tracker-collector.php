@@ -83,4 +83,21 @@ class Tracker_Collector {
         ", $days);
         return $wpdb->get_results($sql);
     }
+
+    public static function get_top_pages($limit = 5) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'visitor_logs';
+    
+        $sql = $wpdb->prepare("
+            SELECT page_url, COUNT(*) AS total
+            FROM $table
+            GROUP BY page_url
+            ORDER BY total DESC
+            LIMIT %d
+        ", $limit);
+    
+        return $wpdb->get_results($sql);
+    }
+
+
 }

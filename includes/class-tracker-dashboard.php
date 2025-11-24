@@ -6,4 +6,7 @@ class Tracker_Dashboard {
         include plugin_dir_path(__FILE__) . '../admin/views/dashboard.php';
     }
 
+
+
+
 }

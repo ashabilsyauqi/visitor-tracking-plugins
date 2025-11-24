@@ -3,7 +3,7 @@
  * Plugin Name: WP Visitor Analytics
  * Description: Custom visitor analytics plugin (tracking + admin charts).
  * Version: 1.1
- * Author: Ashabil
+ * Author: KINGAshabi
  */
 
 if (!defined('ABSPATH')) exit;
@@ -89,3 +89,33 @@ add_action('template_redirect', function () {
     $collector->log_request();
 });
 
+
+
+function myplugin_add_dashboard_widgets() {
+    wp_add_dashboard_widget(
+        'myplugin_dashboard_widget',
+        'Visitor Analytics',
+        'myplugin_dashboard_widget_display'
+    );
+}
+add_action('wp_dashboard_setup', 'myplugin_add_dashboard_widgets');
+
+function myplugin_dashboard_widget_display() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'visitor_logs';
+    $total_visitors = $wpdb->get_var("SELECT COUNT(*) FROM $table");
+    echo "<p>Total visitors: <strong>$total_visitors</strong></p>";
+}
+
+
+add_action('admin_menu', function () {
+    add_menu_page(
+        'Visitor Analytics',
+        'Visitor Analytics',
+        'manage_options',
+        'visitor-analytics',
+        'render_visitor_dashboard',
+        'dashicons-chart-bar',
+        30
+    );
+});
