@@ -124,9 +124,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('load-more-visitors')?.addEventListener('click', () => loadVisitors(false));
 
 
-    // =========================
-    // TOP 5 PAGES CHART
-    // =========================
+    // ============================
+    // TOP 5 PAGES
+    // ============================
     const topPagesCanvas = document.getElementById('topPagesChart')?.getContext('2d');
 
     if (topPagesCanvas && window.WA_TOP_PAGES) {
@@ -150,6 +150,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 maintainAspectRatio: false,
                 plugins: {
                     title: { display: true, text: 'Top 5 Pages' }
+                },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+
+    // ==========================================
+    // ** TOP IP REGIONAL (Country/City grouping) **
+    // ==========================================
+    const topIpCanvas = document.getElementById('topIpChart')?.getContext('2d');
+
+    if (topIpCanvas && window.WA_TOP_IPS) {
+        const labels = window.WA_TOP_IPS.map(i => `${i.country}/${i.city}`);
+        const totals = window.WA_TOP_IPS.map(i => i.count);
+
+        new Chart(topIpCanvas, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Visits',
+                    data: totals,
+                    backgroundColor: 'rgba(194,70,70,0.3)',
+                    borderColor: '#c24646',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'Top Visitor Locations' }
                 },
                 scales: { y: { beginAtZero: true } }
             }
