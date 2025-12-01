@@ -1,22 +1,16 @@
 document.addEventListener('DOMContentLoaded', function () {
     const nonce = WA_DASHBOARD_API.nonce;
 
-    // Canvas
-    const dailyCtx = document.getElementById('dailyChart')?.getContext('2d');
-    const weeklyCtx = document.getElementById('weeklyChart')?.getContext('2d');
+    const dailyCtx   = document.getElementById('dailyChart')?.getContext('2d');
+    const weeklyCtx  = document.getElementById('weeklyChart')?.getContext('2d');
     const monthlyCtx = document.getElementById('monthlyChart')?.getContext('2d');
 
-    // Summary
-    const elDailyTotals = document.getElementById('totals-daily');
-    const elWeeklyTotals = document.getElementById('totals-weekly');
-    const elMonthlyTotals = document.getElementById('totals-monthly');
+    const elDaily   = document.getElementById('totals-daily');
+    const elWeekly  = document.getElementById('totals-weekly');
+    const elMonthly = document.getElementById('totals-monthly');
 
-    if (!dailyCtx || !weeklyCtx || !monthlyCtx || !elDailyTotals || !elWeeklyTotals || !elMonthlyTotals) {
-        console.error('WPVA: Required elements not found');
-        return;
-    }
+    if (!dailyCtx || !weeklyCtx || !monthlyCtx || !elDaily || !elWeekly || !elMonthly) return;
 
-    // CHARTS
     Promise.all([
         fetchSeries('daily', 30),
         fetchSeries('weekly', 12),
@@ -24,19 +18,19 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchTotals('daily'),
         fetchTotals('weekly'),
         fetchTotals('monthly')
-    ]).then(([daily, weekly, monthly, totalsDaily, totalsWeekly, totalsMonthly]) => {
-        renderLineChart(dailyCtx, daily.data, `Daily (last ${daily.limit} days)`);
-        renderLineChart(weeklyCtx, weekly.data, `Weekly (last ${weekly.limit} weeks)`);
-        renderLineChart(monthlyCtx, monthly.data, `Monthly (last ${monthly.limit} months)`);
+    ]).then(([daily, weekly, monthly, tDaily, tWeekly, tMonthly]) => {
 
-        elDailyTotals.innerHTML = `<strong>${totalsDaily.total_visitors}</strong> visitors · ${totalsDaily.pageviews} pageviews`;
-        elWeeklyTotals.innerHTML = `<strong>${totalsWeekly.total_visitors}</strong> visitors · ${totalsWeekly.pageviews} pageviews`;
-        elMonthlyTotals.innerHTML = `<strong>${totalsMonthly.total_visitors}</strong> visitors · ${totalsMonthly.pageviews} pageviews`;
+        renderSmartChart(dailyCtx,   daily.data,   'Daily (last 30 days)');
+        renderSmartChart(weeklyCtx,  weekly.data,  'Weekly (last 12 weeks)');
+        renderSmartChart(monthlyCtx, monthly.data, 'Monthly (last 12 months)');
+
+        elDaily.innerHTML   = `<strong>${tDaily.total_visitors}</strong> visitors · ${tDaily.pageviews} pageviews`;
+        elWeekly.innerHTML  = `<strong>${tWeekly.total_visitors}</strong> visitors · ${tWeekly.pageviews} pageviews`;
+        elMonthly.innerHTML = `<strong>${tMonthly.total_visitors}</strong> visitors · ${tMonthly.pageviews} pageviews`;
+
     }).catch(err => {
-        console.error('Chart Error:', err);
-        ['daily', 'weekly', 'monthly'].forEach(p => {
-            document.getElementById(`totals-${p}`).innerHTML = '<span style="color:red;">Failed</span>';
-        });
+        console.error('Chart error:', err);
+        [elDaily, elWeekly, elMonthly].forEach(el => el.innerHTML = 'Error');
     });
 
     function fetchSeries(range, limit) {
@@ -52,141 +46,81 @@ document.addEventListener('DOMContentLoaded', function () {
         return fetch(url, { headers: { 'X-WP-Nonce': nonce } }).then(r => r.json());
     }
 
-    function renderLineChart(ctx, data, title) {
-        const labels = data.map(i => i.period);
-        const visitors = data.map(i => i.visitors);
-        const pageviews = data.map(i => i.pageviews);
-
+    // INI RAHASIANYA — CHART YANG SUPER SMART
+    function renderSmartChart(ctx, rawData, title) {
+        const visitors  = rawData.map(d => parseInt(d.visitors)  || 0);
+        const pageviews = rawData.map(d => parseInt(d.pageviews) || 0);
+        const labels    = rawData.map(d => d.period);
+    
+        const allValues = [...visitors, ...pageviews];
+        const maxData   = Math.max(...allValues, 1); // minimal 1 biar ga error
+    
+        // Paksa skala Y sesuai data asli + buffer kecil
+        const suggestedMax = maxData <= 5 ? maxData + 2 : Math.ceil(maxData * 1.25);
+        const stepSize     = maxData <= 10 ? 1 : (maxData <= 30 ? 2 : 5);
+    
         new Chart(ctx, {
             type: 'line',
             data: {
-                labels,
+                labels: labels,
                 datasets: [
-                    { label: 'Visitors', data: visitors, borderColor: '#2271b1', backgroundColor: 'rgba(34,113,177,0.1)', tension: 0.3, fill: true },
-                    { label: 'Pageviews', data: pageviews, borderColor: '#46c27d', backgroundColor: 'rgba(70,194,125,0.1)', tension: 0.3, fill: true }
+                    {
+                        label: 'Visitors',
+                        data: visitors,
+                        borderColor: '#2271b1',
+                        backgroundColor: 'rgba(34,113,177,0.15)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: 'Pageviews',
+                        data: pageviews,
+                        borderColor: '#46c27d',
+                        backgroundColor: 'rgba(70,194,125,0.15)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 7
+                    }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { title: { display: true, text: title } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
-    // TABEL PENGUNJUNG
-    let visitorsOffset = 0;
-    const visitorsLimit = 50;
-
-    function loadVisitors(replace = true) {
-        const tbody = document.getElementById('visitors-table-body');
-        const btn = document.getElementById('load-more-visitors');
-
-        if (replace) {
-            tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
-            visitorsOffset = 0;
-        }
-
-        fetch(`${WA_DASHBOARD_API.visitors}?offset=${visitorsOffset}&limit=${visitorsLimit}`, {
-            headers: { 'X-WP-Nonce': nonce }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (replace) tbody.innerHTML = '';
-
-            if (data.data.length === 0) {
-                btn.style.display = 'none';
-                if (visitorsOffset === 0) tbody.innerHTML = '<tr><td colspan="4">No data.</td></tr>';
-                return;
-            }
-
-            data.data.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><code>${row.ip_address}</code></td>
-                    <td><small>${row.user_agent.substring(0, 60)}...</small></td>
-                    <td><a href="${row.url}" target="_blank">${row.url.substring(0, 50)}${row.url.length > 50 ? '...' : ''}</a></td>
-                    <td>${new Date(row.timestamp).toLocaleString()}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            visitorsOffset += data.data.length;
-            btn.style.display = data.data.length < visitorsLimit ? 'none' : 'block';
-        })
-        .catch(() => {
-            tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Failed to load.</td></tr>';
-        });
-    }
-
-    loadVisitors();
-    document.getElementById('load-more-visitors')?.addEventListener('click', () => loadVisitors(false));
-
-
-    // ============================
-    // TOP 5 PAGES
-    // ============================
-    const topPagesCanvas = document.getElementById('topPagesChart')?.getContext('2d');
-
-    if (topPagesCanvas && window.WA_TOP_PAGES) {
-        const labels = window.WA_TOP_PAGES.map(i => i.page);
-        const views = window.WA_TOP_PAGES.map(i => i.views);
-
-        new Chart(topPagesCanvas, {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Total Views',
-                    data: views,
-                    backgroundColor: 'rgba(34,113,177,0.3)',
-                    borderColor: '#2271b1',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
                 plugins: {
-                    title: { display: true, text: 'Top 5 Pages' }
+                    title: { display: true, text: title, font: { size: 15 } },
+                    legend: { position: 'bottom' },
+                    tooltip: { mode: 'index', intersect: false }
                 },
-                scales: { y: { beginAtZero: true } }
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        suggestedMin: 0,
+                        suggestedMax: suggestedMax,
+                        ticks: {
+                            stepSize: stepSize,
+                            maxTicksLimit: 8,
+                            // INI YANG PALING PENTING — MATIIN SEMUA "NICE" SCALE
+                            autoSkip: false,
+                            callback: function(value) {
+                                return value; // tampilin angka asli tanpa tambahan 0
+                            }
+                        },
+                        grid: {
+                            drawTicks: true,
+                            tickLength: 8
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    }
+                }
             }
         });
     }
-
-
-    // ==========================================
-    // ** TOP IP REGIONAL (Country/City grouping) **
-    // ==========================================
-    const topIpCanvas = document.getElementById('topIpChart')?.getContext('2d');
-
-    if (topIpCanvas && window.WA_TOP_IPS) {
-        const labels = window.WA_TOP_IPS.map(i => `${i.country}/${i.city}`);
-        const totals = window.WA_TOP_IPS.map(i => i.count);
-
-        new Chart(topIpCanvas, {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Visits',
-                    data: totals,
-                    backgroundColor: 'rgba(194,70,70,0.3)',
-                    borderColor: '#c24646',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: { display: true, text: 'Top Visitor Locations' }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
 });
